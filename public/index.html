@@ -83,7 +83,7 @@
             <!--a href="#" class="sort">metascore</a-->
         </span>
         <span class="tools-label">
-            <input type="search" class="search" placeholder="search for games" />
+            <input type="search" incremental="incremental" class="search" placeholder="search for games" />
         </span>
     </aside>
     <main></main>
@@ -134,7 +134,7 @@
     buttons.forEach(function clickAction(butt) { butt.addEventListener('click', getGames); });
     tools.forEach(function clickAction(tool) { tool.addEventListener('click', sortGames); });
     usernameInput.addEventListener('keypress', getGames);
-    search.addEventListener('keyup', sortGames);
+    ['search', 'keyup'].forEach(function searchAction(action) { search.addEventListener(action, sortGames); });
 
     // the websocket-connection encapsulated in an object
     var webSocketConnection = {
