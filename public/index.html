@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>steam rules ok</title>
+    <link href='http://fonts.googleapis.com/css?family=Cabin:400,700' rel='stylesheet' type='text/css'>
+    <style>
+        * { box-sizing: border-box; }
+        main { padding: 1rem }
+        html, body { font: 100% "Cabin", sans-serif; padding: 0; margin: 0; border: 0; background: #ecf0f1 }
+        h1 { color: darkgray; display: inline-block; margin: 1rem 2rem 1rem 0; text-shadow: 1px 1px 0 dimgray; letter-spacing: 0.1rem; font-weight: 400 }
+        h2 { padding: 0; margin: 0.1em 0 }
+        a { text-decoration: none }
+        footer { position: absolute; bottom: 0.5rem; left: 1rem }
+        footer, footer a { font-size: 70%; color: #aaa; display: inline-block; text-shadow: none; padding: 0.5em }
+        #username, .button, .search { font-size: 1.2rem; padding: 0.5rem 1rem }
+        #username { position: relative; }
+        #username, .search { border: 0; border-bottom: 1px solid dimgray; width: 25rem; background: inherit; margin: 1rem 2rem 1rem 0 }
+        .player { display: inline-block; font-size: 1.25rem; margin: 1rem 2rem 1rem 0 }
+        .topbar { padding: 0 0 0 2em; text-align: left; position: relative }
+        .error { color: tomato }
+        .button { border: 0; background: tomato; color: whitesmoke; text-shadow: 0 0 1px rgba(0,0,0,0.4); width: 49%; margin: 0 }
+        .button:first-of-type { margin: 0 1% 0 0}
+        .buttons { width: 25rem; display: inline-block; text-align: center; margin: 1rem 2rem 1rem 0 }
+        .button:hover { background: orangered }
+        .status { font-size: 1.5rem; padding: 2rem; text-align: center; color: dimgray; opacity: 0; transition: all 0.4s ease-in-out; display: none }
+        .steamlink, .sort { color: dodgerblue }
+        .steamlink:hover, .sort:hover { text-decoration: underline }
+        .sort { margin:  0 0.25rem }
+        .game { opacity: 0; height: 4.37rem; position: relative;  min-width: 450px; width: 32.1%; display: inline-block; text-align: center; padding: 1rem 2rem; margin: 0.5%; background: whitesmoke; color: #75706B; box-shadow: 0 1px 1px #75706B; transition: all 0.3s ease-in-out; z-index: 1; border-left: 0.5rem solid dimgray }
+        .game-name { width: 60%; text-align: left; padding: 0.25rem 0.5rem; margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-size: 1.4rem }
+        .game:hover { cursor: crosshair; z-index: 2; color: #0e0e0e }
+        .gamepic { border: 0; position: absolute; top: 0; right: 0; z-index: 100; opacity: 1; transition: all 0.4s ease-in-out }
+        /*.gamepic:hover { opacity: 0 }*/
+        .backdrop { width: 184px; height: 69px; position: absolute; right: 0; top: 0; z-index: 10; display: inline-block }
+        .hidden { display: none }
+        .status-message { opacity: 0; transition: opacity 0.3s ease-in }
+        .tools { font-size: 1.2rem; margin: 1rem 0 1rem 2rem; transition: opacity 0.2s ease-in; opacity: 0 }
+        .tools-label { padding: 0 1rem 0 0 }
+        .input-tooltip { transition: opacity 0.2s ease-in-out; display: inline-block; position: absolute; top: 1.2rem; left: 1rem; background: tomato; color: #fff; opacity: 0; font-size: 1.2rem }
+        @media all and (max-width: 1428px) {
+            .game { width: 48.8% }
+        }
+        @media all and (max-width: 1037px) {
+            .game { width: 100% }
+        }
+    </style>
+    <!-- the templates -->
+    <template id="gameTemplate">
+        <a class="game hidden">
+            <h3 class="game-name"></h3>
+            <span class="backdrop"></span>
+            <img class="gamepic" />
+        </a>
+    </template>
+    <template id="playerTemplate">
+        <span>Games for: </span>
+        <a target="_blank" class="steamlink"></a>
+    </template>
+    <template id="statusTemplate">
+        <p class="status-message"></p>
+    </template>
+</head>
+
+<body>
+    <!-- initial document -->
+    <section class="topbar">
+        <h1>steam games</h1>
+        <input type="text" id="username" placeholder="steam id, community id or custom url" pattern="^STEAM_[01]:[01]:\d{1,10}$|http:\/\/steamcommunity.com\/id\/|\d{17}" required>
+        <span class="input-tooltip">Invalid query, try again</span>
+        <span class="buttons">
+            <button class="button" id="roulette">game me</button>
+            <button class="button" id="all">all games</button>
+        </span>
+        <aside class="player"></aside>
+    </section>
+    <aside class="tools">
+        <span class="tools-label">Total games:
+            <strong class="games-amount"></strong>
+        </span>
+        <span class="tools-label">Sort by:
+            <a href="#" class="sort">name</a>
+            <a href="#" class="sort">playtime</a>
+            <!--a href="#" class="sort">metascore</a-->
+        </span>
+        <span class="tools-label">
+            <input type="search" class="search" placeholder="search for games" />
+        </span>
+    </aside>
+    <main></main>
+    <var class="status" data-visible="0"></var>
+    <footer>
+        ok 2014
+    </footer>
+
+    <script>
+    // the main selectors
+    var main = document.querySelector('main');
+    var playerEl = document.querySelector('.player');
+    var tooltip = document.querySelector('.input-tooltip');
+    var loading = document.querySelector('.status');
+    var usernameInput = document.querySelector('#username');
+    var gamesAmount = document.querySelector('.games-amount');
+    var toolsEl = document.querySelector('.tools');
+    var search = document.querySelector('.search');
+    var tools = Array.prototype.slice.call(document.querySelectorAll('.sort'));
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
+    // game element template selectors
+    var gameTemplate = document.querySelector('#gameTemplate');
+    var gameContent = gameTemplate.content;
+    var gameBackdrop = gameContent.querySelector('.backdrop');
+    var gameEl = gameContent.querySelector('.game');
+    var gameName = gameContent.querySelector('.game-name');
+    var gamePic = gameContent.querySelector('.gamepic');
+    // player element template selectors
+    var playerTemplate = document.querySelector('#playerTemplate');
+    var playerContent = playerTemplate.content;
+    var steamLink = playerContent.querySelector('.steamlink');
+    // status element template selectors
+    var statusTemplate = document.querySelector('#statusTemplate');
+    var statusContent = statusTemplate.content;
+    var statusMessage = statusContent.querySelector('.status-message');
+    // constants and state variables
+    var colors = [ '#61BD6D', '#1ABC9C', '#54acd2', '#2C82C9', '#9365B8', '#475577', '#41A85F', '#00A885', '#3D8EB9', '#2969B0', '#553982', '#F7DA64', '#FBA026', '#EB6B56', '#E25041', '#FAC51C', '#f37934', '#D14841', '#B8312F' ];
+    var clen = colors.length;
+    var lastColors = new Array(3);
+    var sIdRegx = /^STEAM_[01]:[01]:\d{1,10}$/;
+    var urlRexex = /^http:\/\/steamcommunity.com\/\w+\/(.*)/;
+    var cache = {};
+    var runAll = false;
+    var previousSort = 'name';
+    var pending;
+
+    // some listeners for the buttons and inputs
+    buttons.forEach(function clickAction(butt) { butt.addEventListener('click', getGames); });
+    tools.forEach(function clickAction(tool) { tool.addEventListener('click', sortGames); });
+    usernameInput.addEventListener('keypress', getGames);
+    search.addEventListener('keyup', sortGames);
+
+    // the websocket-connection encapsulated in an object
+    var webSocketConnection = {
+        init: function init() {
+            var self = this;
+            this.connection = new WebSocket(window.location.href.replace('http', 'ws'));
+            this.connection.addEventListener('open', self.onOpen);
+            this.connection.addEventListener('close', self.onClose);
+            this.connection.addEventListener('error', self.onError);
+            this.connection.addEventListener('message', self.onMessage);
+        },
+        onOpen: function onOpen() {
+            setTimeout(checkPath, 0);
+        },
+        onMessage: function parseMessage(message) {
+            var data = validJson(message.data);
+            if (data && data.type && responseTypes.hasOwnProperty(data.type)) return responseTypes[data.type](data);
+        },
+        onClose: function onClose() {
+            var self = this;
+            setTimeout(self.init, 1000);
+        },
+        onError: function onError(error) {
+            console.log(error);
+            this.connection.close();
+        },
+        send: function send(data) {
+            this.connection.send(data);
+        },
+        close: function close() {
+            this.connection.close();
+        }
+    };
+
+    // the responsetypes are called according to the message's type
+    var responseTypes = {
+        error: function errorHandler(err) {
+            this.status(err, true);
+            disableEnable(false);
+        },
+        status: function statusHandler(stats, hasError) {
+            var statusNode = createNewStatusElement(stats.message, hasError);
+            var index = loading.children.length;
+            loading.appendChild(statusNode);
+            loading.dataset.visible = +loading.dataset.visible + 1;
+            setTimeout(function fadeIn() {
+                loading.children[index].style.opacity = 1;
+            }, 0);
+            setTimeout(function () {
+                var loadingVisible = +loading.dataset.visible;
+                if (loadingVisible <= 1) return;
+                var item = loading.firstElementChild;
+                item.style.opacity = 0;
+                loading.dataset.visible = loadingVisible - 1;
+                setTimeout(function () {
+                    item.remove();
+                }, 400);
+            }, 3000);
+        },
+        games: function renderGames(games) {
+            hideOrShowLoading(true);
+            this.player(games.players[0]);
+            setGamesAmount(games.game_count.toString());
+            var gameUnits = games.games;
+            var fragment = document.createDocumentFragment();
+            var html = gameUnits
+            .sort(sortFunctions.name)
+            .reduce(function htmlCreator(frag, game) {
+                frag.appendChild(createNewGameElement(game));
+                return frag;
+            }, fragment);
+            cache[pending].main = html.cloneNode(true);
+            main.appendChild(html);
+            showGames();
+            disableEnable(false);
+        },
+        player: function renderPlayer(player) {
+            var html = createNewPlayerElement(player);
+            cache[pending].player = html.cloneNode(true);
+            playerEl.appendChild(html);
+        }
+    };
+
+    var sortFunctions = {
+        name: function sortByName(a, b) {
+            var aname = a.name || a.dataset.name;
+            var bname = b.name || b.dataset.name;
+            return (aname < bname) ? -1 : 1;
+        },
+        playtime: function sortByPlaytime(a, b) {
+            var html = a instanceof HTMLElement;
+            var aplay = html ? a.dataset.playtime : a['playtime_forever'];
+            var bplay = html ? b.dataset.playtime : b['playtime_forever'];
+            return (aplay > bplay) ? -1 : 1;
+        }
+    }
+
+    // start the party
+    webSocketConnection.init();
+
+    function validJson(data) {
+        try {
+            return JSON.parse(data);
+        } catch (e) {
+            console.error('invalid response from steam', data);
+            return false; 
+        }
+    }
+
+    // a helper to disable or enable all the buttons
+    function disableEnable(val) {
+        buttons.forEach(function (butt) { butt.disabled = val; });
+    }
+
+    function setGamesAmount(amount) {
+        if (gamesAmount.textContent !== amount) gamesAmount.textContent = amount;
+    }
+
+    // show either all games a single game with a fade-in
+    function showGames() {
+        var gameEls = main.children;
+        if (runAll) {
+            toolsEl.style.opacity = 1;
+            return Array.prototype.forEach.call(gameEls, function showInOrder(item, i) {
+                item.className = 'game';
+                return setTimeout(function fadeInEffect() {
+                    item.style.opacity = 1;
+                }, i * 15);
+            });
+        }
+        toolsEl.style.opacity = 0;
+        var randEl = gameEls[Math.floor(Math.random() * gameEls.length)];
+        randEl.className = 'game';
+        setTimeout(function fadeIn() {
+            randEl.style.opacity = 1;
+        }, 0);
+    }
+
+    // a helper function to show or hide the status-element, removing all the contents on hide
+    function hideOrShowLoading(hide) {
+        if (hide) {
+            loading.style.opacity = 0;
+            loading.dataset.visible = '0';
+            return setTimeout(function () {
+                loading.style.display = 'none';
+                while (loading.firstChild) loading.removeChild(loading.firstChild);
+            }, 400);
+        }
+        toolsEl.style.opacity = 0;
+        loading.style.opacity = 1;
+        loading.style.display = 'block';
+    }
+
+    function showInputError() {
+        usernameInput.placeholder = 'Invalid input, try again';
+        usernameInput.style['border-color'] = 'firebrick';
+        usernameInput.value = '';
+        usernameInput.addEventListener('keyup', removeInputError);
+        usernameInput.addEventListener('click', removeInputError);
+    }
+
+    function removeInputError() {
+        usernameInput.removeEventListener('keyup', removeInputError);
+        usernameInput.removeEventListener('click', removeInputError);
+        usernameInput.placeholder = 'steam id, community id or custom url'
+        usernameInput.style['border-color'] = 'dimgray';
+    }
+
+    // select a random color which is not one of the past three colors
+    function getAlmostRandomColor() {
+        var newColorIndex;
+        while (!newColorIndex || ~lastColors.indexOf(newColorIndex)) newColorIndex = Math.floor(Math.random() * clen);
+        lastColors.shift();
+        lastColors.push(newColorIndex);
+        return colors[newColorIndex];
+    }
+
+    // functions for creating new elements from the templates
+    function createNewStatusElement(message, hasError) {
+        if (hasError) statusMessage.className = 'error';
+        statusMessage.textContent = message;
+        return statusContent.cloneNode(true);
+    }
+
+    function createNewPlayerElement(player) {
+        steamLink.href = player.profileurl;
+        steamLink.title = player.steamid;
+        steamLink.textContent = player.personaname + ' / ' + player.steamid;
+        return playerContent.cloneNode(true);
+    }
+    
+    function createNewGameElement(obj) {
+        var imgSrc = (obj['img_logo_url'] === '' && obj['img_icon_url'] === '') ? '' : 'http://media.steampowered.com/steamcommunity/public/images/apps/' + obj.appid + '/' + (obj['img_logo_url'] || obj['img_icon_url']) + '.jpg';
+        var color = getAlmostRandomColor();
+        gameName.textContent = obj.name;
+        gameBackdrop.style.background = color;
+        gameEl.href = 'steam://run/' + obj.appid;
+        gameEl.title = obj.name;
+        gameEl.style['border-color'] = color;
+        gameEl.dataset.name = obj.name;
+        gameEl.dataset.playtime = obj['playtime_forever'];
+        gamePic.src = imgSrc;
+        gamePic.alt = obj.name;
+        gamePic.title = obj.name;
+        return gameContent.cloneNode(true);
+    }
+
+    // sort and search
+    function sortGames(event) {
+        var findit = (event.target === search) ? new RegExp(search.value, 'i') : null;
+        var sortProp = findit ? previousSort : event.target.textContent;
+        var elArr = Array.prototype.slice.call(main.children).sort(sortFunctions[sortProp]);
+        previousSort = sortProp;
+        // on search, iterate over the main element and hide everything that doesn't match
+        if (findit) return elArr.forEach(function textSearch(it) {
+            var shouldShow = findit.test(it.dataset.name) ? 1 : 0;
+            it.style.opacity = shouldShow;
+            it.style.display = shouldShow ? 'inline-block' : 'none';
+        });
+        // on sort just sort the array and replace the contents of the main element
+        event.preventDefault();
+        var frag = elArr.reduce(function arrayToHtml(frag, el) { frag.appendChild(el); return frag; }, document.createDocumentFragment());
+        emptyMain();
+        main.appendChild(frag);
+    }
+
+    // if the same user is requested within the same session, just return the dom from the cache instead of making new reqs
+    function restoreFromCache(inputVal, notSamePlayer) {
+        var clone = cache[inputVal].main.cloneNode(true);
+        setGamesAmount(clone.children.length.toString());
+        main.appendChild(clone);
+        if (notSamePlayer) playerEl.appendChild(cache[inputVal].player.cloneNode(true));
+        showGames();
+    }
+
+    // a helper to remove things from the view
+    function emptyMain(notSamePlayer) {
+        while (main.firstChild) main.removeChild(main.firstChild);
+        if (notSamePlayer) while (playerEl.firstChild) playerEl.removeChild(playerEl.firstChild);
+    }
+
+    // used to possibly make a request on pageload
+    function checkPath(e) {
+        var parts = window.location.pathname.substring(1).split('/').filter(function removeFalsy(it) { return !!it; });
+        if (!parts.length) return;
+        var user = parts[0];
+        if (!sIdRegx.test(user) && (user.length < 16 || isNaN(+user))) user = 'http://steamcommunity.com/id/' + user;
+        usernameInput.value = user;
+        getGames({ target: { id: parts[1] || 'all' }, preventDefault: function mock() { return; } });
+    }
+
+    // the pushstate navigation in two functions
+    function pushToState(all, id, inputVal) {
+        var title = 'games for ' + id + ' || steam rules ok';
+        var url = '/' + id + '/' + (all ? 'all' : 'roulette')
+        var state = { id: id, all: all, inputVal: inputVal, title: title, sort: previousSort };
+        document.title = title;
+        playerEl.dataset.playerId = id;
+        window.history.pushState(state, title, url);
+    }
+
+    window.onpopstate = function popStateHandler(e) {
+        if (e.state) {
+            var notSamePlayer = e.state.id !== playerEl.dataset.playerId;
+            emptyMain(notSamePlayer);
+            previousSort = e.state.sort;
+            playerEl.dataset.playerId = e.state.id;
+            document.title = e.state.title;
+            runAll = e.state.all;
+            restoreFromCache(e.state.id, notSamePlayer);
+            usernameInput.value = e.state.inputVal;
+        }
+    };
+
+    // input validation
+    function inputTests(val) {
+        if (val.charAt(val.length - 1) === '/') val = val.substring(0, val.length - 1);
+        if (sIdRegx.test(val)) return val;
+        if (val.match(urlRexex)) return val.match(urlRexex)[1];
+        if (val.length >= 16 && !isNaN(+val)) return val;
+        return;
+    }
+
+    // the handler that acts on user input
+    function getGames(event) {
+        if (event.target.id === 'username' && event.which && event.which !== 13) return;
+        var inputVal = inputTests(usernameInput.value);
+        if (!inputVal) return showInputError();
+        event.preventDefault();
+        runAll = (event.target.id === 'all') ? true : false;
+        pending = inputVal;
+        var notSamePlayer = playerEl.dataset.playerId !== pending;
+        pushToState(runAll, pending, usernameInput.value);
+        emptyMain(notSamePlayer);
+        // just return from the cache if we already have the data
+        if (cache.hasOwnProperty(inputVal)) return restoreFromCache(inputVal, notSamePlayer);
+        cache[pending] = { main: undefined, player: undefined };
+        disableEnable(true);
+        hideOrShowLoading();
+        webSocketConnection.send(inputVal.trim());
+    }
+
+    </script>
+</body>
+</html>

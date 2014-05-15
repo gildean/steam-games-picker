@@ -1,0 +1,19 @@
+{
+  "name": "steam",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.34.0",
+    "connect": "^2.14.5",
+    "ws": "^0.4.31",
+    "bignum": "^0.6.2",
+    "validjson": "^0.1.0",
+    "async": "^0.8.0"
+  }
+}
