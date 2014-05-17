@@ -23,20 +23,20 @@
         .buttons { width: 25rem; display: inline-block; text-align: center; margin: 1rem 2rem 1rem 0 }
         .button:hover { background: orangered }
         .status { font-size: 1.5rem; padding: 2rem; text-align: center; color: dimgray; opacity: 0; transition: all 0.4s ease-in-out; display: none }
-        .steamlink, .sort { color: dodgerblue }
-        .steamlink:hover, .sort:hover { text-decoration: underline }
+        .steam-link, .sort { color: dodgerblue }
+        .steam-avatar { vertical-align: middle; padding: 0 0.5rem }
+        .steam-link:hover, .sort:hover { text-decoration: underline }
         .sort { margin:  0 0.25rem }
         .game { opacity: 0; height: 4.37rem; position: relative;  min-width: 450px; width: 32.1%; display: inline-block; text-align: center; padding: 1rem 2rem; margin: 0.5%; background: whitesmoke; color: #75706B; box-shadow: 0 1px 1px #75706B; transition: all 0.3s ease-in-out; z-index: 1; border-left: 0.5rem solid dimgray }
         .game-name { width: 60%; text-align: left; padding: 0.25rem 0.5rem; margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-size: 1.4rem }
-        .game:hover { cursor: crosshair; z-index: 2; color: #0e0e0e }
-        .gamepic { border: 0; position: absolute; top: 0; right: 0; z-index: 100; opacity: 1; transition: all 0.4s ease-in-out }
+        .game-link:hover { cursor: crosshair; z-index: 2; color: #0e0e0e }
+        .game-pic { border: 0; position: absolute; top: 0; right: 0; z-index: 100; opacity: 1; transition: all 0.4s ease-in-out }
         /*.gamepic:hover { opacity: 0 }*/
-        .backdrop { width: 184px; height: 69px; position: absolute; right: 0; top: 0; z-index: 10; display: inline-block }
+        .game-backdrop { width: 184px; height: 69px; position: absolute; right: 0; top: 0; z-index: 10; display: inline-block }
         .hidden { display: none }
         .status-message { opacity: 0; transition: opacity 0.3s ease-in }
         .tools { font-size: 1.2rem; margin: 1rem 0 1rem 2rem; transition: opacity 0.2s ease-in; opacity: 0 }
         .tools-label { padding: 0 1rem 0 0 }
-        .input-tooltip { transition: opacity 0.2s ease-in-out; display: inline-block; position: absolute; top: 1.2rem; left: 1rem; background: tomato; color: #fff; opacity: 0; font-size: 1.2rem }
         @media all and (max-width: 1428px) {
             .game { width: 48.8% }
         }
@@ -45,18 +45,21 @@
         }
     </style>
     <!-- the templates -->
-    <template id="gameTemplate">
-        <a class="game hidden">
+    <template id="game-template">
+        <a class="game-link hidden">
             <h3 class="game-name"></h3>
-            <span class="backdrop"></span>
-            <img class="gamepic" />
+            <span class="game-backdrop"></span>
+            <img class="game-pic" />
         </a>
     </template>
-    <template id="playerTemplate">
+    <template id="player-template">
         <span>Games for: </span>
-        <a target="_blank" class="steamlink"></a>
+        <a target="_blank" class="steam-link">
+            <img class="steam-avatar" alt="steam-avatar" />
+            <span class="steam-name"></span>
+        </a>
     </template>
-    <template id="statusTemplate">
+    <template id="status-template">
         <p class="status-message"></p>
     </template>
 </head>
@@ -65,8 +68,7 @@
     <!-- initial document -->
     <section class="topbar">
         <h1>steam games</h1>
-        <input type="text" id="username" placeholder="steam id, community id or custom url" pattern="^STEAM_[01]:[01]:\d{1,10}$|http:\/\/steamcommunity.com\/id\/|\d{17}" required>
-        <span class="input-tooltip">Invalid query, try again</span>
+        <input type="text" id="username" placeholder="steam id, community id or custom url" />
         <span class="buttons">
             <button class="button" id="roulette">game me</button>
             <button class="button" id="all">all games</button>
@@ -96,7 +98,6 @@
     // the main selectors
     var main = document.querySelector('main');
     var playerEl = document.querySelector('.player');
-    var tooltip = document.querySelector('.input-tooltip');
     var loading = document.querySelector('.status');
     var usernameInput = document.querySelector('#username');
     var gamesAmount = document.querySelector('.games-amount');
@@ -105,21 +106,24 @@
     var tools = Array.prototype.slice.call(document.querySelectorAll('.sort'));
     var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
     // game element template selectors
-    var gameTemplate = document.querySelector('#gameTemplate');
+    var gameTemplate = document.querySelector('#game-template');
     var gameContent = gameTemplate.content;
-    var gameBackdrop = gameContent.querySelector('.backdrop');
-    var gameEl = gameContent.querySelector('.game');
+    var gameBackdrop = gameContent.querySelector('.game-backdrop');
+    var gameEl = gameContent.querySelector('.game-link');
     var gameName = gameContent.querySelector('.game-name');
-    var gamePic = gameContent.querySelector('.gamepic');
+    var gamePic = gameContent.querySelector('.game-pic');
     // player element template selectors
-    var playerTemplate = document.querySelector('#playerTemplate');
+    var playerTemplate = document.querySelector('#player-template');
     var playerContent = playerTemplate.content;
-    var steamLink = playerContent.querySelector('.steamlink');
+    var steamLink = playerContent.querySelector('.steam-link');
+    var steamName = playerContent.querySelector('.steam-name');
+    var steamAvatar = playerContent.querySelector('.steam-avatar');
     // status element template selectors
-    var statusTemplate = document.querySelector('#statusTemplate');
+    var statusTemplate = document.querySelector('#status-template');
     var statusContent = statusTemplate.content;
     var statusMessage = statusContent.querySelector('.status-message');
     // constants and state variables
+    var searchAction = typeof search.onsearch !== 'undefined' ? 'search' : 'keyup';
     var colors = [ '#61BD6D', '#1ABC9C', '#54acd2', '#2C82C9', '#9365B8', '#475577', '#41A85F', '#00A885', '#3D8EB9', '#2969B0', '#553982', '#F7DA64', '#FBA026', '#EB6B56', '#E25041', '#FAC51C', '#f37934', '#D14841', '#B8312F' ];
     var clen = colors.length;
     var lastColors = new Array(3);
@@ -134,7 +138,7 @@
     buttons.forEach(function clickAction(butt) { butt.addEventListener('click', getGames); });
     tools.forEach(function clickAction(tool) { tool.addEventListener('click', sortGames); });
     usernameInput.addEventListener('keypress', getGames);
-    ['search', 'keyup'].forEach(function searchAction(action) { search.addEventListener(action, sortGames); });
+    search.addEventListener(searchAction, sortGames);
 
     // the websocket-connection encapsulated in an object
     var webSocketConnection = {
@@ -226,8 +230,8 @@
         },
         playtime: function sortByPlaytime(a, b) {
             var html = a instanceof HTMLElement;
-            var aplay = html ? a.dataset.playtime : a['playtime_forever'];
-            var bplay = html ? b.dataset.playtime : b['playtime_forever'];
+            var aplay = html ? +a.dataset.playtime : +a['playtime_forever'];
+            var bplay = html ? +b.dataset.playtime : +b['playtime_forever'];
             return (aplay > bplay) ? -1 : 1;
         }
     }
@@ -253,7 +257,7 @@
         if (gamesAmount.textContent !== amount) gamesAmount.textContent = amount;
     }
 
-    // show either all games a single game with a fade-in
+    // show either all games or a single game with a fade-in
     function showGames() {
         var gameEls = main.children;
         if (runAll) {
@@ -320,9 +324,10 @@
     }
 
     function createNewPlayerElement(player) {
+        steamAvatar.src = player.avatar;
         steamLink.href = player.profileurl;
-        steamLink.title = player.steamid;
-        steamLink.textContent = player.personaname + ' / ' + player.steamid;
+        steamLink.title = player.personastate ? 'Currently online' : 'Last online: ' + new Date(player.lastlogoff * 1000);
+        steamName.textContent = player.personaname + ' / ' + player.steamid;
         return playerContent.cloneNode(true);
     }
     
