@@ -27,7 +27,7 @@
         .steam-avatar { vertical-align: middle; padding: 0 0.5rem }
         .steam-link:hover, .sort:hover { text-decoration: underline }
         .sort { margin:  0 0.25rem }
-        .game-link { opacity: 0; height: 4.37rem; position: relative;  min-width: 450px; width: 32.1%; display: inline-block; text-align: center; padding: 1rem 2rem; margin: 0.25rem 0 0.25rem 0.5rem; background: whitesmoke; color: #75706B; box-shadow: 0 1px 1px #75706B; transition: all 0.3s ease-in-out; z-index: 1; border-left: 0.5rem solid dimgray }
+        .game-link { opacity: 0; height: 4.37rem; position: relative;  min-width: 450px; width: 32.1%; display: inline-block; text-align: center; padding: 1rem 2rem; margin: 0.25rem 0 0.25rem 0.5rem; background: whitesmoke; color: #75706B; box-shadow: 0 1px 1px #75706B; transition: all 0.2s ease-in-out; z-index: 1; border-left: 0.5rem solid dimgray }
         .game-name { width: 60%; text-align: left; padding: 0.25rem 0.5rem; margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-size: 1.4rem }
         .game-link:hover { cursor: crosshair; z-index: 2; color: #0e0e0e }
         .game-pic { border: 0; position: absolute; top: 0; right: 0; z-index: 100; opacity: 1; transition: all 0.4s ease-in-out }
@@ -70,7 +70,7 @@
         <h1>steam games</h1>
         <input type="text" id="username" placeholder="steam id, community id or custom url" />
         <span class="buttons">
-            <button class="button" id="roulette">game me</button>
+            <button class="button" id="roulette">spin the wheel</button>
             <button class="button" id="all">all games</button>
         </span>
         <aside class="player"></aside>
@@ -213,7 +213,6 @@
             cache[pending].main = html.cloneNode(true);
             main.appendChild(html);
             showGames();
-            disableEnable(false);
         },
         player: function renderPlayer(player) {
             var html = createNewPlayerElement(player);
@@ -257,24 +256,41 @@
         if (gamesAmount.textContent !== amount) gamesAmount.textContent = amount;
     }
 
-    // show either all games or a single game with a fade-in
+    // show the games or spin the wheel
     function showGames() {
+        if (!runAll) return roulette();
         var gameEls = main.children;
-        if (runAll) {
-            toolsEl.style.opacity = 1;
-            return Array.prototype.forEach.call(gameEls, function showInOrder(item, i) {
-                item.className = 'game-link';
-                return setTimeout(function fadeInEffect() {
-                    item.style.opacity = 1;
-                }, i * 15);
-            });
-        }
+        toolsEl.style.opacity = 1;
+        disableEnable(false);
+        return Array.prototype.forEach.call(gameEls, function showInOrder(item, i) {
+            item.className = 'game-link';
+            return setTimeout(function fadeInEffect() {
+                item.style.opacity = 1;
+            }, i * 15);
+        });
+    }
+
+    function roulette() {
+        var gameEls = main.children;
         toolsEl.style.opacity = 0;
-        var randEl = gameEls[Math.floor(Math.random() * gameEls.length)];
-        randEl.className = 'game-link';
-        setTimeout(function fadeIn() {
-            randEl.style.opacity = 1;
-        }, 0);
+        var y = 0;
+        (function showInOrder() {
+            y += 1;
+            var randEl = gameEls[Math.floor(Math.random() * gameEls.length)];
+            randEl.className = 'game-link';
+            setTimeout(function fadeIn() {
+                randEl.style.opacity = 1;    
+            }, 1);
+            setTimeout(function fadeOut() {
+                if (y === 10) return disableEnable(false);;
+                randEl.style.opacity = 0;
+                setTimeout(function hide() {
+                    randEl.className = 'game-link hidden';
+                }, 200);
+            }, 10 * y * y);
+            if (y === 10) return;
+            setTimeout(showInOrder, 15 * y * y);
+        }());
     }
 
     // a helper function to show or hide the status-element, removing all the contents on hide
@@ -425,10 +441,11 @@
 
     // the handler that acts on user input
     function getGames(event) {
-        if (event.target.id === 'username' && event.which && event.which !== 13) return;
+        if ((event.target.id === 'username' && event.which && event.which !== 13) || event.target.disabled) return;
         var inputVal = inputTests(usernameInput.value);
         if (!inputVal) return showInputError();
         event.preventDefault();
+        disableEnable(true);
         runAll = (event.target.id === 'all') ? true : false;
         pending = inputVal;
         var notSamePlayer = playerEl.dataset.playerId !== pending;
@@ -437,7 +454,6 @@
         // just return from the cache if we already have the data
         if (cache.hasOwnProperty(inputVal)) return restoreFromCache(inputVal, notSamePlayer);
         cache[pending] = { main: undefined, player: undefined };
-        disableEnable(true);
         hideOrShowLoading();
         webSocketConnection.send(inputVal.trim());
     }
