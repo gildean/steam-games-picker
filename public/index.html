@@ -10,8 +10,6 @@
         h1 { color: darkgray; display: inline-block; margin: 1rem 2rem 1rem 0; text-shadow: 1px 1px 0 dimgray; letter-spacing: 0.1rem; font-weight: 400 }
         h2 { padding: 0; margin: 0.1em 0 }
         a { text-decoration: none }
-        footer { position: absolute; bottom: 0.5rem; left: 1rem }
-        footer, footer a { font-size: 70%; color: #aaa; display: inline-block; text-shadow: none; padding: 0.5em }
         #username, .button, .search { font-size: 1.2rem; padding: 0.5rem 1rem }
         #username { position: relative; }
         #username, .search { border: 0; border-bottom: 1px solid dimgray; width: 25rem; background: inherit; margin: 1rem 2rem 1rem 0 }
@@ -90,10 +88,6 @@
     </aside>
     <main></main>
     <var class="status" data-visible="0"></var>
-    <footer>
-        ok 2014
-    </footer>
-
     <script>
     // the main selectors
     var main = document.querySelector('main');
@@ -259,10 +253,9 @@
     // show the games or spin the wheel
     function showGames() {
         if (!runAll) return roulette();
-        var gameEls = main.children;
         toolsEl.style.opacity = 1;
         disableEnable(false);
-        return Array.prototype.forEach.call(gameEls, function showInOrder(item, i) {
+        return Array.prototype.forEach.call(main.children, function showInOrder(item, i) {
             item.className = 'game-link';
             return setTimeout(function fadeInEffect() {
                 item.style.opacity = 1;
@@ -272,6 +265,7 @@
 
     function roulette() {
         var gameEls = main.children;
+        Array.prototype.forEach.call(gameEls, function hide(el, i) { el.style.opacity = 0; el.className = 'game-link hidden' });
         toolsEl.style.opacity = 0;
         var y = 0;
         (function showInOrder() {
@@ -287,9 +281,9 @@
                 setTimeout(function hide() {
                     randEl.className = 'game-link hidden';
                 }, 200);
-            }, 10 * y * y);
+            }, 15 * y * 4);
             if (y === 10) return;
-            setTimeout(showInOrder, 15 * y * y);
+            setTimeout(showInOrder, 30 * y * 4);
         }());
     }
 
@@ -334,7 +328,7 @@
 
     // functions for creating new elements from the templates
     function createNewStatusElement(message, hasError) {
-        if (hasError) statusMessage.className = 'error';
+        statusMessage.className = hasError ? 'error' : '';
         statusMessage.textContent = message;
         return statusContent.cloneNode(true);
     }
@@ -373,7 +367,7 @@
         if (findit) return elArr.forEach(function textSearch(it) {
             var shouldShow = findit.test(it.dataset.name) ? 1 : 0;
             it.style.opacity = shouldShow;
-            it.style.display = shouldShow ? 'inline-block' : 'none';
+            it.className = shouldShow ? 'game-link' : 'game-link hidden';
         });
         // on sort just sort the array and replace the contents of the main element
         event.preventDefault();
@@ -420,11 +414,12 @@
     window.onpopstate = function popStateHandler(e) {
         if (e.state) {
             var notSamePlayer = e.state.id !== playerEl.dataset.playerId;
-            emptyMain(notSamePlayer);
             previousSort = e.state.sort;
             playerEl.dataset.playerId = e.state.id;
             document.title = e.state.title;
             runAll = e.state.all;
+            if (!notSamePlayer) return showGames();
+            emptyMain(notSamePlayer);
             restoreFromCache(e.state.id, notSamePlayer);
             usernameInput.value = e.state.inputVal;
         }
@@ -450,9 +445,10 @@
         pending = inputVal;
         var notSamePlayer = playerEl.dataset.playerId !== pending;
         pushToState(runAll, pending, usernameInput.value);
+        if (!notSamePlayer && main.children.length) return showGames();
         emptyMain(notSamePlayer);
         // just return from the cache if we already have the data
-        if (cache.hasOwnProperty(inputVal)) return restoreFromCache(inputVal, notSamePlayer);
+        if (cache.hasOwnProperty(inputVal) && cache[pending].main) return restoreFromCache(inputVal, notSamePlayer);
         cache[pending] = { main: undefined, player: undefined };
         hideOrShowLoading();
         webSocketConnection.send(inputVal.trim());
